@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { AiModule } from './ai/ai.module';
 import { User, Organization } from './auth/entities/user.entity';
 import { validate } from './config/env.validation';
 
@@ -33,8 +34,9 @@ import { validate } from './config/env.validation';
         : false,
     }),
 
-    // Business Modules - PHASE 1: ONLY AUTH
+    // Business Modules
     AuthModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

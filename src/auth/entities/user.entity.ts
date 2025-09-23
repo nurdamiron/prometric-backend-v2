@@ -16,10 +16,12 @@ export enum UserStatus {
 
 export enum OnboardingStep {
   EMAIL_VERIFICATION = 'email_verification',
-  PERSONAL_INFO = 'personal_info',
-  COMPANY_INFO = 'company_info',
-  THEME_SELECTION = 'theme_selection',
-  PRICING = 'pricing',
+  THEME = 'theme',
+  PERSONAL = 'personal',
+  USERTYPE = 'usertype',
+  COMPANY = 'company',
+  FEATURES = 'features',
+  AI = 'ai',
   COMPLETED = 'completed'
 }
 
@@ -53,9 +55,9 @@ export class User {
   @Column({ name: 'organization_id', nullable: true })
   organizationId?: string;
 
-  @ManyToOne(() => Organization, organization => organization.id, { nullable: true })
-  @JoinColumn({ name: 'organization_id' })
-  organization?: Organization;
+  // @ManyToOne(() => Organization, organization => organization.id, { nullable: true })
+  // @JoinColumn({ name: 'organization_id' })
+  // organization?: Organization;
 
   // Onboarding tracking
   @Column({ type: 'enum', enum: OnboardingStep, default: OnboardingStep.EMAIL_VERIFICATION })

@@ -1,20 +1,6 @@
 import { IsString, IsOptional, IsEnum, IsNotEmpty, Matches, IsBoolean } from 'class-validator';
 import { OnboardingStep } from '../entities/user.entity';
 
-export class UpdateOnboardingProgressDto {
-  @IsEnum(OnboardingStep)
-  @IsNotEmpty()
-  onboardingStep: OnboardingStep;
-
-  @IsOptional()
-  onboardingData?: OnboardingDataDto;
-}
-
-export class CompleteOnboardingDto {
-  @IsNotEmpty()
-  onboardingData: OnboardingDataDto;
-}
-
 export class OnboardingDataDto {
   // Personal Info
   @IsOptional()
@@ -63,12 +49,18 @@ export class OnboardingDataDto {
   @IsBoolean()
   acceptTerms?: boolean;
 
-  // AI Assistant Configuration
+}
+
+export class UpdateOnboardingProgressDto {
+  @IsEnum(OnboardingStep)
+  @IsNotEmpty()
+  onboardingStep: OnboardingStep;
+
   @IsOptional()
-  aiConfig?: {
-    assistantName?: string;
-    personality?: string;
-    expertise?: string[];
-    voicePreference?: string;
-  };
+  onboardingData?: OnboardingDataDto;
+}
+
+export class CompleteOnboardingDto {
+  @IsNotEmpty()
+  onboardingData: OnboardingDataDto;
 }

@@ -365,7 +365,7 @@ export class AuthService {
         success: true,
         message: 'Verification code sent successfully'
       };
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: error.message || 'Failed to send verification code'
@@ -392,7 +392,7 @@ export class AuthService {
       // Mark email as verified and move to next step
       await this.userRepository.update(user.id, {
         status: UserStatus.ACTIVE,
-        onboardingStep: OnboardingStep.PERSONAL_INFO,
+        onboardingStep: OnboardingStep.THEME,
         verificationCode: undefined,
         verificationExpiresAt: undefined
       });
@@ -401,7 +401,7 @@ export class AuthService {
         success: true,
         message: 'Email verified successfully'
       };
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: error.message || 'Email verification failed'

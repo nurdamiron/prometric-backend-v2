@@ -28,14 +28,14 @@ export class AuthController {
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@Request() req) {
+  async getProfile(@Request() req: any) {
     return this.authService.getProfile(req.user.id);
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async logout(@Request() req) {
+  async logout(@Request() req: any) {
     return this.authService.logout(req.user.id);
   }
 
@@ -85,14 +85,14 @@ export class AuthController {
   @Post('update-onboarding-progress')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async updateOnboardingProgress(@Request() req, @Body() dto: UpdateOnboardingProgressDto) {
+  async updateOnboardingProgress(@Request() req: any, @Body() dto: UpdateOnboardingProgressDto) {
     return this.authService.updateOnboardingProgress(req.user.id, dto.onboardingStep, dto.onboardingData);
   }
 
   @Post('complete-onboarding')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async completeOnboarding(@Request() req, @Body() dto: CompleteOnboardingDto) {
+  async completeOnboarding(@Request() req: any, @Body() dto: CompleteOnboardingDto) {
     return this.authService.completeOnboarding(req.user.id, dto.onboardingData);
   }
 }
