@@ -29,7 +29,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User not found');
     }
 
-    if (user.status !== UserStatus.ACTIVE) {
+    // Allow PENDING users to complete onboarding, but block INACTIVE/SUSPENDED
+    if (user.status === UserStatus.INACTIVE || user.status === UserStatus.SUSPENDED) {
       throw new UnauthorizedException('User account is not active');
     }
 

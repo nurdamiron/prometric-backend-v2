@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request, Query, Req } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { RegisterDto, LoginDto } from '../dto/register.dto';
 import { UpdateOnboardingProgressDto, CompleteOnboardingDto } from '../dto/onboarding.dto';
@@ -16,20 +16,30 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Req() req: any) {
+    const requestMetadata = {
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    };
+
+    return this.authService.login(loginDto, requestMetadata);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refresh(refreshToken);
+  async refresh(@Body('refreshToken') refreshToken: string, @Req() req: any) {
+    const requestMetadata = {
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    };
+
+    return this.authService.refresh(refreshToken, requestMetadata);
   }
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   async getProfile(@Request() req: any) {
-    return this.authService.getProfile(req.user.id);
+    return this.authService.profile(req.user.id);
   }
 
   @Post('logout')
@@ -43,7 +53,7 @@ export class AuthController {
   @Get('check-email')
   @HttpCode(HttpStatus.OK)
   async checkEmailExists(@Query('email') email: string) {
-    const exists = await this.authService.checkEmailExists(email);
+    const exists = await this.authService.emailExists(email);
     return {
       exists,
       message: exists ? 'Email already registered' : 'Email available'
@@ -56,43 +66,65 @@ export class AuthController {
     return this.authService.validatePassword(password);
   }
 
-  @Get('search-company')
+  @Get('company')
   @HttpCode(HttpStatus.OK)
-  async searchCompany(@Query('bin') bin: string) {
-    return this.authService.searchCompanyByBin(bin);
+  async company(@Query('bin') bin: string) {
+    return this.authService.findCompany(bin);
   }
 
   // EMAIL VERIFICATION ENDPOINTS
-  @Post('send-verification-code')
+  @Post('send-code')
   @HttpCode(HttpStatus.OK)
-  async sendVerificationCode(
+  async sendCode(
     @Body('email') email: string,
     @Body('language') language?: string
   ) {
-    return this.authService.sendVerificationCode(email, language);
+    return this.authService.sendCode(email, language);
   }
 
-  @Post('verify-email-code')
+  @Post('verify-code')
   @HttpCode(HttpStatus.OK)
-  async verifyEmailCode(
+  async verifyCode(
     @Body('email') email: string,
     @Body('code') code: string
   ) {
-    return this.authService.verifyEmailCode(email, code);
+    return this.authService.verifyCode(email, code);
   }
 
   // ONBOARDING PROGRESS ENDPOINTS
-  @Post('update-onboarding-progress')
+  @Post('progress')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async updateOnboardingProgress(@Request() req: any, @Body() dto: UpdateOnboardingProgressDto) {
-    return this.authService.updateOnboardingProgress(req.user.id, dto.onboardingStep, dto.onboardingData);
+  async progress(@Request() req: any, @Body() dto: UpdateOnboardingProgressDto) {
+    return this.authService.progressOnboarding(req.user.id, dto.onboardingStep, dto.onboardingData);
   }
 
-  @Post('complete-onboarding')
+  @Post('finish')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async completeOnboarding(@Request() req: any, @Body() dto: CompleteOnboardingDto) {
-    return this.authService.completeOnboarding(req.user.id, dto.onboardingData);
+  async finish(@Request() req: any, @Body() dto: CompleteOnboardingDto) {
+    return this.authService.finishOnboarding(req.user.id, dto.onboardingData);
   }
+
+  // EMPLOYEE APPROVAL ENDPOINTS
+  @Get('pending')
+  @UseGuards(JwtAuthGuard)
+  async pending(@Request() req: any) {
+    return this.authService.pendingEmployees(req.user.id);
+  }
+
+  @Post('approve')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async approve(@Request() req: any, @Body('employeeId') employeeId: string) {
+    return this.authService.approve(req.user.id, employeeId);
+  }
+
+  @Post('reject')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async reject(@Request() req: any, @Body() body: { employeeId: string; reason?: string }) {
+    return this.authService.reject(req.user.id, body.employeeId, body.reason);
+  }
+
 }

@@ -8,13 +8,13 @@ import { AuthController } from './controllers/auth.controller';
 import { TestController } from './controllers/test.controller';
 import { AuthService } from './services/auth.service';
 import { EmailService } from './services/email.service';
-import { User, Organization } from './entities/user.entity';
+import { User, Organization, RefreshToken } from './entities/user.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Organization]),
+    TypeOrmModule.forFeature([User, Organization, RefreshToken]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

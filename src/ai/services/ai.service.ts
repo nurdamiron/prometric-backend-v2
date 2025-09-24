@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { User, Organization } from '../../auth/entities/user.entity';
 import { ConfigureAiAssistantDto, ConfigureAiBrainDto } from '../dto/ai-config.dto';
 
@@ -12,6 +13,8 @@ export class AiService {
 
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+
+    private readonly configService: ConfigService,
   ) {}
 
   // USER AI ASSISTANT METHODS
@@ -152,10 +155,11 @@ export class AiService {
     };
   }
 
-  async chatWithUserAssistant(userId: string, message: string) {
+  async chatWithUserAssistant(userId: string, message: string, context?: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'firstName', 'aiConfig']
+      relations: ['organization'],
+      select: ['id', 'firstName', 'aiConfig', 'organizationId']
     });
 
     if (!user || !user.aiConfig) {
@@ -165,18 +169,24 @@ export class AiService {
       };
     }
 
-    // TODO: Integrate with actual AI service (OpenAI, Claude, etc.)
-    // For now, return a mock response based on assistant configuration
-    const assistantName = user.aiConfig.assistantName;
-    const personality = user.aiConfig.personality;
+    // Import real AI service
+    const { RealAiService } = await import('../../services/real-ai.service');
+    const realAiService = new RealAiService(this.configService);
 
-    const mockResponse = this.generateMockResponse(message, assistantName, personality);
+    // Get organization data for context
+    const organizationData = user.organization ? {
+      name: user.organization.name,
+      industry: user.organization.industry,
+      bin: user.organization.bin
+    } : null;
 
-    return {
-      response: mockResponse,
-      assistant: assistantName,
-      timestamp: new Date().toISOString()
-    };
+    // Use real AI service
+    return await realAiService.chatWithAssistant(
+      message,
+      user.aiConfig,
+      context,
+      organizationData
+    );
   }
 
   private generateMockResponse(message: string, assistantName: string, personality: string): string {
