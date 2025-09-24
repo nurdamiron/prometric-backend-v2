@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import compression from 'compression';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
+import { AdvancedRateLimiterMiddleware } from './shared/middleware/advanced-rate-limiter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -39,16 +40,22 @@ async function bootstrap() {
     crossOriginEmbedderPolicy: false,
   }));
 
-  // Rate Limiting - Optimized for production use
-  const authLimiter = rateLimit({
+  // 🚀 ADVANCED DISTRIBUTED RATE LIMITING
+  // Multi-layer protection: IP + User + Distributed + Suspicious activity detection
+  const advancedRateLimiter = new AdvancedRateLimiterMiddleware(app.get('ConfigService'));
+
+  // Apply advanced rate limiting to all routes
+  app.use(advancedRateLimiter.use.bind(advancedRateLimiter));
+
+  // Legacy rate limiting as fallback (more lenient)
+  const fallbackLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'production' ? 20 : 100, // 20 prod, 100 dev
-    message: 'Too many login attempts, try again later',
+    max: process.env.NODE_ENV === 'production' ? 200 : 1000, // Generous fallback limits
+    message: 'System temporarily unavailable',
     standardHeaders: true,
     legacyHeaders: false,
-    skipSuccessfulRequests: true, // Don't count successful logins
     skip: (req) => {
-      // Skip rate limiting for test endpoints in development
+      // Skip for localhost in development
       if (process.env.NODE_ENV !== 'production' && req.ip === '127.0.0.1') {
         return true;
       }
@@ -56,25 +63,7 @@ async function bootstrap() {
     }
   });
 
-  const registerLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: process.env.NODE_ENV === 'production' ? 10 : 50, // 10 prod, 50 dev
-    message: 'Too many registration attempts, try again later',
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: true, // Don't count successful registrations
-    skip: (req) => {
-      // Skip rate limiting for localhost in development
-      if (process.env.NODE_ENV !== 'production' && req.ip === '127.0.0.1') {
-        return true;
-      }
-      return false;
-    }
-  });
-
-  // Apply rate limits to specific routes
-  app.use('/auth/login', authLimiter);
-  app.use('/auth/register', registerLimiter);
+  app.use(fallbackLimiter);
 
   // 🔧 GLOBAL ERROR HANDLING & GRACEFUL DEGRADATION
   app.useGlobalFilters(new GlobalExceptionFilter());

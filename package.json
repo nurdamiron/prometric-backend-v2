@@ -1,7 +1,7 @@
 {
-  "name": "prometric-backend",
-  "version": "0.0.1",
-  "description": "",
+  "name": "prometric-v2-backend",
+  "version": "2.0.0",
+  "description": "Enterprise-grade CRM backend with AI integration, DDD architecture, and advanced security",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

@@ -1,60 +1,71 @@
+# 🚀 PROMETRIC V2 BACKEND
+
+**Enterprise-Grade CRM Backend** с AI Integration и Advanced Security
+
 <p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+  <img src="https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI" />
 </p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 🎯 СИСТЕМА НА ВСЕ 100%
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+**Production Ready Enterprise CRM** с полной функциональностью:
+- ✅ **Authentication & Security**: JWT, XSS protection, rate limiting
+- ✅ **Customer Management**: Complete CRM с pipeline
+- ✅ **AI Assistant**: Real OpenAI integration с Kazakhstan localization
+- ✅ **Analytics**: Business intelligence dashboard
+- ✅ **DDD Architecture**: Domain-driven design с CQRS
+- ✅ **Multi-tenant**: Organization isolation
+- ✅ **Performance**: Optimized для production
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## ⚡ Quick Start
 
 ```bash
-$ npm install
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.example .env
+# Configure DATABASE_URL, JWT_SECRET, OPENAI_API_KEY
+
+# Run database migrations
+npm run migration:run
+
+# Start development server
+npm run start:dev
 ```
 
-## Compile and run the project
+## 🏗️ Architecture Overview
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```
+📁 src/
+├── 🔐 auth/           # Authentication & Authorization
+├── 👥 domains/        # DDD Business Domains
+│   ├── customer-relationship-management/
+│   └── sales-pipeline-management/
+├── 🤖 ai/            # AI Assistant Integration
+├── 📊 controllers/   # API Controllers
+├── 🛠️ services/      # Business Services
+├── 🗄️ entities/      # Database Entities
+└── 🔧 shared/        # Shared Infrastructure
 ```
 
-## Run tests
+## 🧪 Testing
 
 ```bash
-# unit tests
-$ npm run test
+# Run all tests
+npm test
 
-# e2e tests
-$ npm run test:e2e
+# Run with coverage
+npm run test:cov
 
-# test coverage
-$ npm run test:cov
+# Run comprehensive API tests
+./test-scripts/comprehensive-api-test.sh
+
+# Run stress tests
+python3 test-scripts/stress-test.py
 ```
 
 ## Deployment

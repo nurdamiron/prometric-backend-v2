@@ -46,11 +46,26 @@ import { validate } from './config/env.validation';
         evict: 60000,   // Time before removing unused connection (60s)
         handleDisconnects: true, // Reconnect on connection loss
       },
-      // 🔧 Additional optimizations
+      // 🔧 Advanced database optimizations
       cache: {
+        type: 'database',
         duration: 30000, // Cache query results for 30s
+        options: {
+          type: 'ioredis', // Use Redis if available
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+        },
       },
       maxQueryExecutionTime: 5000, // Log slow queries (>5s)
+      // 🚀 Schema caching to reduce startup time
+      schema: process.env.DATABASE_SCHEMA || 'public',
+      migrationsRun: false, // Disable auto-migrations in production
+      dropSchema: false, // Never drop schema automatically
+      // 📈 Performance optimizations
+      supportBigNumbers: true,
+      bigNumberStrings: false,
+      // 🔍 Query optimization
+      relationLoadStrategy: 'join', // Use JOIN instead of separate queries
     }),
 
     // Business Modules - Auth focus for critical testing

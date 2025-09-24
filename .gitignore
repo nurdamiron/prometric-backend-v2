@@ -88,3 +88,14 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Binary files and documents
+*.pdf
+*.docx
+*.doc
+*.ppt
+*.pptx
+
+# Temporary files
+*.tmp
+*.temp
