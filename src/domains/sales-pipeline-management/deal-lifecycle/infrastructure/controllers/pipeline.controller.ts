@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../../../user-identity-access/authentication/infrastructure/guards/jwt-auth.guard';
 import { IsString, IsBoolean, IsOptional, IsUUID, IsArray, IsNumber, Min, Max, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { v4 as uuidv4 } from 'uuid';
-import { SalesPipelineService } from '../../../../../services/sales-pipeline.service';
+import { SalesPipelineService } from '../../../sales-pipeline.service';
 
 // HTML sanitization
 const sanitizeInput = (value: string) => {

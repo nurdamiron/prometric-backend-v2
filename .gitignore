@@ -99,3 +99,21 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Google Cloud credentials (sensitive)
+service-account-key.json
+vertex-ai-key.json
+
+# VSCode git logs and debug info
+.vscode/
+*.log
+git-log-*
+
+# Development test files
+test-*.js
+*-test.js
+debug-*.js
+check-*.js
+comprehensive-*.js
+final-*.js
+real-*.js

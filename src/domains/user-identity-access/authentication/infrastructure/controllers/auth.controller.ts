@@ -1,13 +1,18 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request, Query, Req, Res } from '@nestjs/common';
-import { AuthService } from '../../../../../auth/services/auth.service';
-import { RegisterDto, LoginDto } from '../../../../../auth/dto/register.dto';
-import { UpdateOnboardingProgressDto, CompleteOnboardingDto } from '../../../../../auth/dto/onboarding.dto';
-import { JwtAuthGuard } from '../../../../../auth/guards/jwt-auth.guard';
+import { AuthApplicationService } from '../../application/services/auth-application.service';
+import { UserCleanupApplicationService } from '../../application/services/user-cleanup.application.service';
+// DDD imports
+import { RegisterDto, LoginDto } from '../dto/register.dto';
+import { UpdateOnboardingProgressDto, CompleteOnboardingDto } from '../dto/onboarding.dto';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { OrganizationGuard, SkipOrgGuard } from '../../../../../shared/guards/organization.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthApplicationService,
+    private readonly userCleanupService: UserCleanupApplicationService,
+  ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -180,6 +185,31 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async reject(@Request() req: any, @Body() body: { employeeId: string; reason?: string }) {
     return this.authService.reject(req.user.id, body.employeeId, body.reason);
+  }
+
+  // 🧹 USER CLEANUP ENDPOINTS (DDD Architecture)
+  @Post('admin/cleanup-incomplete-onboarding')
+  @HttpCode(HttpStatus.OK)
+  async cleanupIncompleteOnboarding(@Body() body: { timeoutSeconds?: number }) {
+    return this.userCleanupService.executeCleanup(body.timeoutSeconds);
+  }
+
+  @Get('admin/cleanup-preview')
+  @HttpCode(HttpStatus.OK)
+  async getCleanupPreview(@Query('timeoutSeconds') timeoutSeconds?: string) {
+    const timeout = timeoutSeconds ? parseInt(timeoutSeconds) : undefined;
+    return this.userCleanupService.getCleanupPreview(timeout);
+  }
+
+  // 🧪 TEST ENDPOINT - Get verification code for testing (development only)
+  @Get('test/verification-code/:email')
+  @HttpCode(HttpStatus.OK)
+  async getVerificationCodeForTesting(@Param('email') email: string) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Test endpoints not available in production');
+    }
+
+    return this.authService.getVerificationCodeForTesting(email);
   }
 
 }
