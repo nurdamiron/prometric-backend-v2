@@ -1,9 +1,9 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request, Query, Req, Res } from '@nestjs/common';
-import { AuthService } from '../services/auth.service';
-import { RegisterDto, LoginDto } from '../dto/register.dto';
-import { UpdateOnboardingProgressDto, CompleteOnboardingDto } from '../dto/onboarding.dto';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { OrganizationGuard } from '../../shared/guards/organization.guard';
+import { AuthService } from '../../../../../auth/services/auth.service';
+import { RegisterDto, LoginDto } from '../../../../../auth/dto/register.dto';
+import { UpdateOnboardingProgressDto, CompleteOnboardingDto } from '../../../../../auth/dto/onboarding.dto';
+import { JwtAuthGuard } from '../../../../../auth/guards/jwt-auth.guard';
+import { OrganizationGuard, SkipOrgGuard } from '../../../../../shared/guards/organization.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -73,6 +73,7 @@ export class AuthController {
   // 🔐 USER HYDRATION endpoint for HttpOnly cookie authentication
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @SkipOrgGuard() // Skip org guard for user profile endpoint
   async getCurrentUser(@Request() req: any) {
     const user = await this.authService.profile(req.user.id);
     return {

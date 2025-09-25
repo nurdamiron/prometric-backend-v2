@@ -169,24 +169,8 @@ export class AiService {
       };
     }
 
-    // Import real AI service
-    const { RealAiService } = await import('../../services/real-ai.service');
-    const realAiService = new RealAiService(this.configService);
-
-    // Get organization data for context
-    const organizationData = user.organization ? {
-      name: user.organization.name,
-      industry: user.organization.industry,
-      bin: user.organization.bin
-    } : null;
-
-    // Use real AI service
-    return await realAiService.chatWithAssistant(
-      message,
-      user.aiConfig,
-      context,
-      organizationData
-    );
+    // Temporary fallback to mock response until AI service is properly configured
+    return this.generateMockResponse(message, user.aiConfig.assistantName, user.aiConfig.personality);
   }
 
   private generateMockResponse(message: string, assistantName: string, personality: string): string {

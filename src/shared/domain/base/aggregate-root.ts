@@ -1,15 +1,14 @@
-import { Entity } from './entity';
 import { DomainEvent } from './domain-event';
 
-export abstract class AggregateRoot extends Entity {
+export abstract class AggregateRoot {
   private _domainEvents: DomainEvent[] = [];
 
-  protected addDomainEvent(domainEvent: DomainEvent): void {
-    this._domainEvents.push(domainEvent);
+  protected addDomainEvent(event: DomainEvent): void {
+    this._domainEvents.push(event);
   }
 
   public getUncommittedEvents(): DomainEvent[] {
-    return this._domainEvents.slice();
+    return [...this._domainEvents];
   }
 
   public markEventsAsCommitted(): void {

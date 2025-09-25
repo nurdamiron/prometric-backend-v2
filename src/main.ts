@@ -3,12 +3,15 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
-import { AdvancedRateLimiterMiddleware } from './shared/middleware/advanced-rate-limiter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 🔐 COOKIE PARSER for HttpOnly authentication
+  app.use(cookieParser());
 
   // 🚀 PERFORMANCE: Compression middleware for response optimization
   app.use(compression({
@@ -40,30 +43,38 @@ async function bootstrap() {
     crossOriginEmbedderPolicy: false,
   }));
 
-  // 🚀 ADVANCED DISTRIBUTED RATE LIMITING
-  // Multi-layer protection: IP + User + Distributed + Suspicious activity detection
-  const advancedRateLimiter = new AdvancedRateLimiterMiddleware(app.get('ConfigService'));
-
-  // Apply advanced rate limiting to all routes
-  app.use(advancedRateLimiter.use.bind(advancedRateLimiter));
-
-  // Legacy rate limiting as fallback (more lenient)
-  const fallbackLimiter = rateLimit({
+  // 🚀 BASIC RATE LIMITING (Working version)
+  const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'production' ? 200 : 1000, // Generous fallback limits
-    message: 'System temporarily unavailable',
+    max: process.env.NODE_ENV === 'production' ? 20 : 100,
+    message: 'Too many auth attempts, try again later',
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => {
-      // Skip for localhost in development
-      if (process.env.NODE_ENV !== 'production' && req.ip === '127.0.0.1') {
-        return true;
-      }
-      return false;
-    }
   });
 
-  app.use(fallbackLimiter);
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 100 : 1000,
+    message: 'Too many requests, try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // 🔐 SECURE EMAIL VERIFICATION - Special rate limiting for send-code
+  const emailCodeLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Only 5 code requests per 15 min per IP + email combination
+    message: 'Too many verification code requests, try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Remove custom keyGenerator to fix IPv6 warning
+    // Default generator handles IPv6 properly
+  });
+
+  // Apply rate limiting to specific routes
+  app.use('/auth/send-code', emailCodeLimiter); // CRITICAL: Prevent spam attacks
+  app.use('/auth', authLimiter);
+  app.use(generalLimiter);
 
   // 🔧 GLOBAL ERROR HANDLING & GRACEFUL DEGRADATION
   app.useGlobalFilters(new GlobalExceptionFilter());

@@ -9,11 +9,16 @@ export enum CustomerStatusType {
   LOST = 'lost'
 }
 
-export class CustomerStatus extends ValueObject<CustomerStatusType> {
-  protected validate(): void {
-    if (!Object.values(CustomerStatusType).includes(this.value)) {
-      throw new Error(`Invalid customer status: ${this.value}`);
+interface CustomerStatusProps {
+  value: CustomerStatusType;
+}
+
+export class CustomerStatus extends ValueObject<CustomerStatusProps> {
+  constructor(status: CustomerStatusType) {
+    if (!Object.values(CustomerStatusType).includes(status)) {
+      throw new Error(`Invalid customer status: ${status}`);
     }
+    super({ value: status });
   }
 
   public static lead(): CustomerStatus {
@@ -42,7 +47,7 @@ export class CustomerStatus extends ValueObject<CustomerStatusType> {
 
   public canTransitionTo(newStatus: CustomerStatus): boolean {
     const transitions = this.getAllowedTransitions();
-    return transitions.includes(newStatus.value);
+    return transitions.includes(newStatus.props.value);
   }
 
   private getAllowedTransitions(): CustomerStatusType[] {
@@ -55,22 +60,26 @@ export class CustomerStatus extends ValueObject<CustomerStatusType> {
       [CustomerStatusType.LOST]: [CustomerStatusType.LEAD] // Can requalify lost customers
     };
 
-    return transitionRules[this.value] || [];
+    return transitionRules[this.props.value] || [];
   }
 
   public isLead(): boolean {
-    return this.value === CustomerStatusType.LEAD;
+    return this.props.value === CustomerStatusType.LEAD;
   }
 
   public isActive(): boolean {
-    return [CustomerStatusType.PROSPECT, CustomerStatusType.QUALIFIED, CustomerStatusType.CUSTOMER].includes(this.value);
+    return [CustomerStatusType.PROSPECT, CustomerStatusType.QUALIFIED, CustomerStatusType.CUSTOMER].includes(this.props.value);
   }
 
   public isCustomer(): boolean {
-    return this.value === CustomerStatusType.CUSTOMER;
+    return this.props.value === CustomerStatusType.CUSTOMER;
   }
 
   public isLost(): boolean {
-    return this.value === CustomerStatusType.LOST;
+    return this.props.value === CustomerStatusType.LOST;
+  }
+
+  get value(): CustomerStatusType {
+    return this.props.value;
   }
 }

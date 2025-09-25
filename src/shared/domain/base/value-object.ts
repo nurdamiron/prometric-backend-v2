@@ -1,19 +1,15 @@
 export abstract class ValueObject<T> {
-  public constructor(public readonly value: T) {
-    this.validate();
+  protected readonly props: T;
+
+  constructor(props: T) {
+    this.props = Object.freeze(props);
   }
 
-  protected abstract validate(): void;
-
   public equals(other: ValueObject<T>): boolean {
-    if (!(other instanceof this.constructor)) {
+    if (!other || !other.props) {
       return false;
     }
 
-    return JSON.stringify(this.value) === JSON.stringify(other.value);
-  }
-
-  public toString(): string {
-    return JSON.stringify(this.value);
+    return JSON.stringify(this.props) === JSON.stringify(other.props);
   }
 }

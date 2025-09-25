@@ -105,10 +105,10 @@ export class AuthService {
         // Continue with registration even if email fails
       }
 
-      // 7. Generate tokens within transaction context
-      const tokens = await this.generateTokens(savedUser);
+      // 7. NO TOKEN GENERATION - Security requirement!
+      // const tokens = await this.generateTokens(savedUser); // REMOVED
 
-      // 8. Return user data with needsVerification flag
+      // 8. Return user data WITHOUT tokens until email verified
       return {
         user: {
           id: savedUser.id,
@@ -121,8 +121,9 @@ export class AuthService {
           organization: null, // No organization yet
           aiConfig: savedUser.aiConfig
         },
-        ...tokens,
+        message: 'Registration successful. Please verify your email.',
         needsVerification: true
+        // ❌ NO TOKENS until email verification completed
       };
     }); // End transaction
   }
@@ -335,6 +336,15 @@ export class AuthService {
 
         // Create organization for owner
         if (onboardingData.companyName && onboardingData.companyBin) {
+          // Check if organization with this БИН already exists
+          const existingOrg = await this.organizationRepository.findOne({
+            where: { bin: onboardingData.companyBin }
+          });
+
+          if (existingOrg) {
+            throw new BadRequestException(`Organization with БИН ${onboardingData.companyBin} already exists`);
+          }
+
           const organization = this.organizationRepository.create({
             name: sanitizeInput(onboardingData.companyName),
             bin: onboardingData.companyBin,
@@ -500,9 +510,14 @@ export class AuthService {
         verificationExpiresAt: undefined
       });
 
+      // 🔑 GENERATE TOKENS ONLY AFTER EMAIL VERIFICATION
+      const updatedUser = await this.userRepository.findOne({ where: { id: user.id } });
+      const tokens = await this.generateTokens(updatedUser!);
+
       return {
         success: true,
-        message: 'Email verified successfully'
+        message: 'Email verified successfully',
+        ...tokens
       };
     } catch (error: any) {
       return {
@@ -586,6 +601,33 @@ export class AuthService {
       expiresIn: 900, // 15 minutes
       tokenType: 'Bearer'
     };
+  }
+
+  // 🔐 SET HTTPONLY COOKIES FOR SECURE AUTHENTICATION
+  setAuthCookies(res: any, tokens: { accessToken: string; refreshToken: string }) {
+    // Access token cookie (15 minutes)
+    res.cookie('access_token', tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/'
+    });
+
+    // Refresh token cookie (7 days)
+    res.cookie('refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/auth/refresh'
+    });
+  }
+
+  // 🧹 CLEAR AUTH COOKIES ON LOGOUT
+  clearAuthCookies(res: any) {
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/auth/refresh' });
   }
 
   // 💾 STORE REFRESH TOKEN WITH METADATA

@@ -11,10 +11,6 @@ export class CustomerCreatedEvent extends DomainEvent {
     public readonly initialStatus: CustomerStatus,
     public readonly createdBy: string
   ) {
-    super(customerId.value);
-  }
-
-  public getEventName(): string {
-    return 'CustomerCreated';
+    super('CustomerCreated', customerId.value);
   }
 }

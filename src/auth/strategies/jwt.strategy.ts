@@ -14,7 +14,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private userRepository: Repository<User>,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: (req) => {
+        // Try to extract from httpOnly cookie first, fallback to Authorization header
+        if (req.cookies?.access_token) {
+          return req.cookies.access_token;
+        }
+        return ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+      },
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_SECRET') || 'default-secret-for-dev',
     });

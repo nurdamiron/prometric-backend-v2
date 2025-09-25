@@ -1,12 +1,13 @@
 export abstract class DomainEvent {
   public readonly occurredAt: Date;
+  public readonly eventId: string;
 
-  protected constructor(
+  constructor(
+    public readonly eventType: string,
     public readonly aggregateId: string,
-    public readonly eventVersion: number = 1
+    occurredAt?: Date
   ) {
-    this.occurredAt = new Date();
+    this.occurredAt = occurredAt || new Date();
+    this.eventId = require('crypto').randomUUID();
   }
-
-  public abstract getEventName(): string;
 }

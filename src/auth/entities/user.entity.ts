@@ -55,9 +55,10 @@ export class User {
   @Column({ name: 'organization_id', nullable: true })
   organizationId?: string;
 
-  @ManyToOne(() => Organization, { nullable: true })
-  @JoinColumn({ name: 'organization_id' })
-  organization?: Organization;
+  // Organization relationship temporarily disabled due to circular dependency
+  // @ManyToOne(() => Organization, { nullable: true })
+  // @JoinColumn({ name: 'organization_id' })
+  // organization?: Organization;
 
   // Onboarding tracking
   @Column({ type: 'enum', enum: OnboardingStep, default: OnboardingStep.EMAIL_VERIFICATION })

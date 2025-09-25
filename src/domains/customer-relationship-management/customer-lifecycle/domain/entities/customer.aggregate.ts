@@ -24,10 +24,10 @@ export class Customer extends AggregateRoot {
   private constructor(
     private customerId: CustomerId,
     private props: CustomerProps,
-    createdAt?: Date,
-    updatedAt?: Date
+    private createdAt?: Date,
+    private updatedAt?: Date
   ) {
-    super(customerId.value, createdAt, updatedAt);
+    super();
   }
 
   public static create(
@@ -194,6 +194,10 @@ export class Customer extends AggregateRoot {
   public recordContact(): void {
     this.props.lastContactDate = new Date();
     this.touch();
+  }
+
+  private touch(): void {
+    this.updatedAt = new Date();
   }
 
   // Query methods

@@ -19,7 +19,7 @@ export class InMemoryEventBus implements EventBus {
   private handlers = new Map<string, EventHandler<any>[]>();
 
   async publish(event: DomainEvent): Promise<void> {
-    const eventType = event.getEventName();
+    const eventType = event.eventType;
     const eventHandlers = this.handlers.get(eventType) || [];
 
     for (const handler of eventHandlers) {

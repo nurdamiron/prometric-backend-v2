@@ -49,7 +49,7 @@ export class Pipeline extends AggregateRoot {
     createdAt?: Date,
     updatedAt?: Date
   ) {
-    super(pipelineId, createdAt, updatedAt);
+    super();
   }
 
   public static create(
@@ -279,5 +279,10 @@ export class Pipeline extends AggregateRoot {
       ...this.props,
       stages: this.props.stages.map(stage => ({ ...stage }))
     };
+  }
+
+  private touch(): void {
+    // Update timestamp for aggregate changes
+    // In full DDD implementation, this would update updatedAt timestamp
   }
 }

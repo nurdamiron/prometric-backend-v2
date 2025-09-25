@@ -5,7 +5,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-// import { AiModule } from './ai/ai.module';
+import { UserIdentityModule } from './domains/user-identity-access/user-identity.module';
+import { AiModule } from './ai/ai.module';
 import { User, Organization, RefreshToken } from './auth/entities/user.entity';
 // import { SalesPipeline, SalesStage, SalesDeal } from './entities/sales-pipeline.entity';
 // import { CustomerPersistenceEntity } from './domains/customer-relationship-management/customer-lifecycle/infrastructure/persistence/customer.persistence.entity';
@@ -46,34 +47,27 @@ import { validate } from './config/env.validation';
         evict: 60000,   // Time before removing unused connection (60s)
         handleDisconnects: true, // Reconnect on connection loss
       },
-      // 🔧 Advanced database optimizations
+      // 🔧 Basic caching
       cache: {
-        type: 'database',
         duration: 30000, // Cache query results for 30s
-        options: {
-          type: 'ioredis', // Use Redis if available
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379'),
-        },
       },
       maxQueryExecutionTime: 5000, // Log slow queries (>5s)
       // 🚀 Schema caching to reduce startup time
       schema: process.env.DATABASE_SCHEMA || 'public',
       migrationsRun: false, // Disable auto-migrations in production
       dropSchema: false, // Never drop schema automatically
-      // 📈 Performance optimizations
-      supportBigNumbers: true,
-      bigNumberStrings: false,
-      // 🔍 Query optimization
-      relationLoadStrategy: 'join', // Use JOIN instead of separate queries
+      // 📈 Basic settings
     }),
 
-    // Business Modules - Auth focus for critical testing
-    AuthModule,
-    // AiModule, // Temporarily disabled due to import errors
-    // CustomerManagementModule, // DDD structure complete - temporarily disabled for testing
-    // CompleteSalesModule, // Real Sales Pipeline with full database integration - temporarily disabled
-    // AnalyticsModule, // Real-time analytics and business intelligence - temporarily disabled
+    // 🏗️ DDD DOMAINS (Gradual migration - currently has 71 TypeScript errors)
+    // UserIdentityModule, // User Identity & Access Management domain - temporarily disabled
+
+    // 🔧 Working Modules
+    AuthModule, // Auth module with HttpOnly cookies support
+    AiModule, // AI Intelligence module with Kazakhstan localization
+    // CustomerManagementModule, // Will migrate to CRM domain
+    // CompleteSalesModule, // Will migrate to Sales Pipeline domain
+    // AnalyticsModule, // Will migrate to Analytics domain
   ],
   controllers: [AppController],
   providers: [AppService],

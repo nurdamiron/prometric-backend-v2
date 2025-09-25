@@ -63,7 +63,7 @@ export class CreateCustomerHandler implements CommandHandler<CreateCustomerComma
 
       // Save customer (simplified approach for now)
       const customerEntity = this.customerRepository.create({
-        id: customer.getCustomerId().value,
+        id: customer.getCustomerId().toString(),
         organizationId: command.organizationId,
         firstName: command.firstName,
         lastName: command.lastName,
@@ -85,7 +85,7 @@ export class CreateCustomerHandler implements CommandHandler<CreateCustomerComma
 
       return {
         success: true,
-        data: customer.getCustomerId().value,
+        data: customer.getCustomerId().toString(),
         metadata: {
           customerInfo: customer.getCustomerInfo().value,
           status: customer.getStatus().value,
