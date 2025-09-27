@@ -24,8 +24,8 @@ export class Customer extends AggregateRoot {
   private constructor(
     private customerId: CustomerId,
     private props: CustomerProps,
-    private createdAt?: Date,
-    private updatedAt?: Date
+    private _createdAt?: Date,
+    private _updatedAt?: Date
   ) {
     super();
   }
@@ -104,7 +104,7 @@ export class Customer extends AggregateRoot {
 
     this.props.status = newStatus;
     this.addNotes(`Status changed to ${newStatus.value}: ${reason} (by ${changedBy})`);
-    this.touch();
+    this._customerTouch();
   }
 
   public updateLeadScore(newScore: number): void {
@@ -113,12 +113,12 @@ export class Customer extends AggregateRoot {
     }
 
     this.props.leadScore = newScore;
-    this.touch();
+    this._customerTouch();
   }
 
   public assignTo(userId: string): void {
     this.props.assignedTo = userId;
-    this.touch();
+    this._customerTouch();
   }
 
   public addNotes(notes: string): void {
@@ -135,7 +135,7 @@ export class Customer extends AggregateRoot {
       this.props.notes = newNote;
     }
 
-    this.touch();
+    this._customerTouch();
   }
 
   public addTag(tag: string): void {
@@ -150,7 +150,7 @@ export class Customer extends AggregateRoot {
     const trimmedTag = tag.trim().toLowerCase();
     if (!this.props.tags.includes(trimmedTag)) {
       this.props.tags.push(trimmedTag);
-      this.touch();
+      this._customerTouch();
     }
   }
 
@@ -161,7 +161,7 @@ export class Customer extends AggregateRoot {
 
     const trimmedTag = tag.trim().toLowerCase();
     this.props.tags = this.props.tags.filter(t => t !== trimmedTag);
-    this.touch();
+    this._customerTouch();
   }
 
   public updatePotentialValue(value: number): void {
@@ -170,7 +170,7 @@ export class Customer extends AggregateRoot {
     }
 
     this.props.potentialValue = value;
-    this.touch();
+    this._customerTouch();
   }
 
   public addToTotalValue(amount: number): void {
@@ -179,7 +179,7 @@ export class Customer extends AggregateRoot {
     }
 
     this.props.totalValue += amount;
-    this.touch();
+    this._customerTouch();
   }
 
   public scheduleFollowUp(date: Date): void {
@@ -188,16 +188,16 @@ export class Customer extends AggregateRoot {
     }
 
     this.props.nextFollowUpDate = date;
-    this.touch();
+    this._customerTouch();
   }
 
   public recordContact(): void {
     this.props.lastContactDate = new Date();
-    this.touch();
+    this._customerTouch();
   }
 
-  private touch(): void {
-    this.updatedAt = new Date();
+  private _customerTouch(): void {
+    this._updatedAt = new Date();
   }
 
   // Query methods

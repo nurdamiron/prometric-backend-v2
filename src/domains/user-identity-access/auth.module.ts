@@ -8,6 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import { AuthApplicationService } from './authentication/application/services/auth-application.service';
 import { UserCleanupDomainService } from './authentication/domain/services/user-cleanup.domain.service';
 import { UserCleanupApplicationService } from './authentication/application/services/user-cleanup.application.service';
+import { CompanyDataService } from './authentication/application/services/company-data.service';
+
+// Authorization domain
+import { AuthorizationModule } from './authorization/authorization.module';
 
 // Infrastructure imports
 import { AuthController } from './authentication/infrastructure/controllers/auth.controller';
@@ -48,6 +52,7 @@ import { OrganizationGuard } from '../../shared/guards/organization.guard';
     // DDD Application Services
     AuthApplicationService,
     UserCleanupApplicationService,
+    CompanyDataService,
 
     // DDD Domain Services
     UserCleanupDomainService,

@@ -176,6 +176,26 @@ export class ConversationService {
     return sessions.map(this.mapEntityToDomain);
   }
 
+  async getConversation(
+    sessionId: string,
+    userId: string,
+    organizationId: string
+  ): Promise<ConversationSession> {
+    const session = await this.sessionRepository.findOne({
+      where: {
+        id: sessionId,
+        userId,
+        organizationId
+      }
+    });
+
+    if (!session) {
+      throw new Error('Разговор не найден');
+    }
+
+    return this.mapEntityToDomain(session);
+  }
+
   async getConversationHistory(
     sessionId: string,
     limit?: number,
@@ -197,6 +217,35 @@ export class ConversationService {
     const messages = await queryBuilder.getMany();
 
     return messages.map(this.mapMessageEntityToDomain);
+  }
+
+  async endConversation(
+    sessionId: string,
+    userId: string,
+    organizationId: string
+  ): Promise<ConversationSession> {
+    const session = await this.sessionRepository.findOne({
+      where: {
+        id: sessionId,
+        userId,
+        organizationId
+      }
+    });
+
+    if (!session) {
+      throw new Error('Разговор не найден');
+    }
+
+    await this.sessionRepository.update(sessionId, {
+      status: ConversationStatus.COMPLETED,
+      updatedAt: new Date()
+    });
+
+    const updatedSession = await this.sessionRepository.findOne({
+      where: { id: sessionId }
+    });
+
+    return this.mapEntityToDomain(updatedSession!);
   }
 
   async archiveConversation(sessionId: string, reason?: string): Promise<void> {

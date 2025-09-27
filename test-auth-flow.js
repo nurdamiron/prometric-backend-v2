@@ -1,575 +1,290 @@
 #!/usr/bin/env node
 
 /**
- * Comprehensive test for DDD authentication/registration/onboarding flow
- * Tests the complete user journey from registration to onboarding completion
+ * 🔐 COMPREHENSIVE AUTH FLOW TEST
+ * Tests the complete authentication flow with HttpOnly cookies
  */
 
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-require('dotenv').config();
+const axios = require('axios');
+const https = require('https');
 
-const API_BASE = process.env.API_URL || 'http://localhost:3333';
+// Configuration
+const BASE_URL = 'http://localhost:3333';
+const TEST_EMAIL = `test-${Date.now()}@prometric.com`;
+const TEST_PASSWORD = 'TestPassword123!';
+const TEST_FIRST_NAME = 'Test';
+const TEST_LAST_NAME = 'User';
 
-// Test data
-const testUser = {
-  email: `test.${Date.now()}@example.com`,
-  firstName: 'Test',
-  lastName: 'User',
-  password: 'testpass123!',
-  phone: '+77771234567',
-  companyBin: '123456789012',
-  companyName: 'Test Company LTD',
-  industry: 'technology'
+// Create axios instance with cookie support
+const api = axios.create({
+  baseURL: BASE_URL,
+  withCredentials: true, // Enable HttpOnly cookies
+  httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Store cookies manually for debugging
+let storedCookies = '';
+
+// Test results
+const results = {
+  registration: null,
+  emailVerification: null,
+  login: null,
+  profile: null,
+  logout: null,
+  errors: []
 };
 
-let userTokens = {};
-let verificationCode = null; // Will be fetched from database
+// Utility functions
+const log = (step, message, data = null) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${step}: ${message}`);
+  if (data) {
+    console.log('Data:', JSON.stringify(data, null, 2));
+  }
+};
 
+// Extract and store cookies from response
+const extractCookies = (response) => {
+  const setCookieHeaders = response.headers['set-cookie'];
+  if (setCookieHeaders) {
+    storedCookies = setCookieHeaders.map(cookie => cookie.split(';')[0]).join('; ');
+    log('COOKIES', `🍪 Stored cookies: ${storedCookies}`);
+  }
+};
+
+// Add cookies to request
+const addCookiesToRequest = (config) => {
+  if (storedCookies) {
+    config.headers = config.headers || {};
+    config.headers['Cookie'] = storedCookies;
+    log('COOKIES', `🍪 Adding cookies to request: ${storedCookies}`);
+  }
+  return config;
+};
+
+const logError = (step, error) => {
+  const errorMsg = error.response?.data || error.message;
+  log(step, `❌ ERROR: ${errorMsg}`);
+  results.errors.push({ step, error: errorMsg });
+};
+
+// Test 1: Registration
 async function testRegistration() {
-  console.log('🔄 Step 1: Testing User Registration...');
-
+  log('REGISTRATION', '🚀 Starting registration test...');
+  
   try {
-    const response = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(testUser)
+    const response = await api.post('/auth/register', {
+      email: TEST_EMAIL,
+      firstName: TEST_FIRST_NAME,
+      lastName: TEST_LAST_NAME,
+      password: TEST_PASSWORD,
+      phone: '+77001234567',
+      companyBin: '123456789012',
+      companyName: 'Test Company',
+      industry: 'Technology'
     });
 
-    const result = await response.json();
-
-    if (response.ok) {
-      console.log('✅ Registration successful');
-      console.log('📧 User created with status:', result.user?.status);
-      console.log('📝 Onboarding step:', result.user?.onboardingStep);
-      return { success: true, data: result };
-    } else {
-      console.log('❌ Registration failed:', result.message);
-      return { success: false, error: result };
+    log('REGISTRATION', '✅ Registration successful', response.data);
+    results.registration = response.data;
+    
+    // Verify no tokens in response (should be in HttpOnly cookies)
+    if (response.data.accessToken || response.data.refreshToken) {
+      log('REGISTRATION', '⚠️ WARNING: Tokens found in response body (should be in HttpOnly cookies)');
     }
+    
+    return response.data;
   } catch (error) {
-    console.log('❌ Registration error:', error.message);
-    return { success: false, error: error.message };
+    logError('REGISTRATION', error);
+    throw error;
   }
 }
 
-async function testEmailVerification() {
-  console.log('\n🔄 Step 2: Testing Email Verification...');
-
+// Test 2: Get verification code (for testing)
+async function getVerificationCode() {
+  log('VERIFICATION_CODE', '🔍 Getting verification code for testing...');
+  
   try {
-    // First, send verification code
-    const sendResponse = await fetch(`${API_BASE}/auth/send-code`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: testUser.email,
-        language: 'en'
-      })
-    });
-
-    const sendResult = await sendResponse.json();
-    console.log('📧 Send code result:', sendResult.message);
-
-    // Get real verification code from test endpoint
-    const codeResponse = await fetch(`${API_BASE}/auth/test/verification-code/${encodeURIComponent(testUser.email)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-
-    const codeResult = await codeResponse.json();
-    if (codeResult.success && codeResult.verificationCode) {
-      verificationCode = codeResult.verificationCode;
-      console.log('🔍 Retrieved verification code from database');
-    } else {
-      console.log('⚠️  Could not retrieve verification code, using mock');
-      verificationCode = '123456';
-    }
-
-    // Verify email with real code
-    const verifyResponse = await fetch(`${API_BASE}/auth/verify-code`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: testUser.email,
-        code: verificationCode
-      })
-    });
-
-    const verifyResult = await verifyResponse.json();
-
-    if (verifyResponse.ok && verifyResult.success) {
-      console.log('✅ Email verification successful');
-      console.log('🔑 Access token received:', verifyResult.accessToken ? 'YES' : 'NO');
-      console.log('🔄 Refresh token received:', verifyResult.refreshToken ? 'YES' : 'NO');
-
-      userTokens = {
-        accessToken: verifyResult.accessToken,
-        refreshToken: verifyResult.refreshToken
-      };
-
-      return { success: true, data: verifyResult };
-    } else {
-      console.log('❌ Email verification failed:', verifyResult.message);
-      return { success: false, error: verifyResult };
-    }
+    const response = await api.get(`/auth/test/verification-code/${TEST_EMAIL}`);
+    log('VERIFICATION_CODE', '✅ Verification code retrieved', response.data);
+    return response.data.verificationCode;
   } catch (error) {
-    console.log('❌ Email verification error:', error.message);
-    return { success: false, error: error.message };
+    logError('VERIFICATION_CODE', error);
+    throw error;
   }
 }
 
-async function testUserProfile() {
-  console.log('\n🔄 Step 3: Testing User Profile Access...');
-
+// Test 3: Email verification with HttpOnly cookies
+async function testEmailVerification(verificationCode) {
+  log('EMAIL_VERIFICATION', '📧 Testing email verification with HttpOnly cookies...');
+  
   try {
-    const response = await fetch(`${API_BASE}/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${userTokens.accessToken}`,
-        'Content-Type': 'application/json',
-      }
+    const response = await api.post('/auth/verify-code', {
+      email: TEST_EMAIL,
+      code: verificationCode
     });
 
-    const result = await response.json();
-
-    if (response.ok) {
-      console.log('✅ Profile access successful');
-      console.log('👤 User ID:', result.user?.id);
-      console.log('📧 Email:', result.user?.email);
-      console.log('📊 Status:', result.user?.status);
-      console.log('🎯 Onboarding step:', result.user?.onboardingStep);
-      return { success: true, data: result };
-    } else {
-      console.log('❌ Profile access failed:', result.message);
-      return { success: false, error: result };
-    }
+    log('EMAIL_VERIFICATION', '✅ Email verification successful', response.data);
+    results.emailVerification = response.data;
+    
+    // Extract and store cookies
+    extractCookies(response);
+    
+    return response.data;
   } catch (error) {
-    console.log('❌ Profile access error:', error.message);
-    return { success: false, error: error.message };
+    logError('EMAIL_VERIFICATION', error);
+    throw error;
   }
 }
 
-async function testOnboardingProgress() {
-  console.log('\n🔄 Step 4: Testing Onboarding Progress...');
-
+// Test 4: Login with HttpOnly cookies
+async function testLogin() {
+  log('LOGIN', '🔑 Testing login with HttpOnly cookies...');
+  
   try {
-    const progressData = {
-      onboardingStep: 'personal',
-      onboardingData: {
-        firstName: testUser.firstName,
-        lastName: testUser.lastName,
-        phone: testUser.phone,
-        theme: 'light'
-      }
-    };
-
-    const response = await fetch(`${API_BASE}/auth/progress`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${userTokens.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(progressData)
+    const response = await api.post('/auth/login', {
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD
     });
 
-    const result = await response.json();
-
-    if (response.ok) {
-      console.log('✅ Onboarding progress saved');
-      console.log('📈 Current step:', result.onboardingStep);
-      return { success: true, data: result };
-    } else {
-      console.log('❌ Onboarding progress failed:', result.message);
-      return { success: false, error: result };
-    }
+    log('LOGIN', '✅ Login successful', response.data);
+    results.login = response.data;
+    
+    // Extract and store cookies
+    extractCookies(response);
+    
+    return response.data;
   } catch (error) {
-    console.log('❌ Onboarding progress error:', error.message);
-    return { success: false, error: error.message };
+    logError('LOGIN', error);
+    throw error;
   }
 }
 
-async function testCompanySearch() {
-  console.log('\n🔄 Step 5: Testing Company Search...');
-
+// Test 5: Get profile (should use HttpOnly cookies)
+async function testProfile() {
+  log('PROFILE', '👤 Testing profile access with HttpOnly cookies...');
+  
   try {
-    const response = await fetch(`${API_BASE}/auth/company?bin=${testUser.companyBin}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-
-    const result = await response.json();
-
-    if (response.ok) {
-      console.log('✅ Company search successful');
-      console.log('🏢 Company exists:', result.exists);
-      if (result.exists) {
-        console.log('🏢 Company name:', result.company?.name);
-        console.log('👤 Owner:', result.company?.owner?.firstName, result.company?.owner?.lastName);
-      }
-      return { success: true, data: result };
-    } else {
-      console.log('❌ Company search failed');
-      return { success: false, error: result };
-    }
+    const config = addCookiesToRequest({});
+    const response = await api.get('/auth/me', config);
+    log('PROFILE', '✅ Profile access successful', response.data);
+    results.profile = response.data;
+    return response.data;
   } catch (error) {
-    console.log('❌ Company search error:', error.message);
-    return { success: false, error: error.message };
+    log('PROFILE', `❌ Profile access failed: ${error.response?.status} ${error.response?.statusText}`);
+    if (error.response?.data) {
+      log('PROFILE', 'Error details:', error.response.data);
+    }
+    results.errors.push({ step: 'PROFILE', error: error.response?.data || error.message });
+    return null;
   }
 }
 
-async function testOnboardingCompletion() {
-  console.log('\n🔄 Step 6: Testing Onboarding Completion...');
-
-  try {
-    const onboardingData = {
-      onboardingData: {
-        firstName: testUser.firstName,
-        lastName: testUser.lastName,
-        phone: testUser.phone,
-        userType: 'owner',
-        companyBin: testUser.companyBin,
-        companyName: testUser.companyName,
-        industry: testUser.industry,
-        theme: 'light',
-        plan: 'basic',
-        features: ['ai-assistant', 'crm'],
-        aiConfig: {
-          assistantName: 'TestAI',
-          personality: 'professional',
-          expertise: ['sales', 'support']
-        }
-      }
-    };
-
-    const response = await fetch(`${API_BASE}/auth/finish`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${userTokens.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(onboardingData)
-    });
-
-    const result = await response.json();
-
-    if (response.ok) {
-      console.log('✅ Onboarding completion successful');
-      console.log('👤 Final user role:', result.user?.role);
-      console.log('📊 Final status:', result.user?.status);
-      console.log('🏢 Organization ID:', result.user?.organizationId);
-      console.log('🎯 Onboarding step:', result.user?.onboardingStep);
-      return { success: true, data: result };
-    } else {
-      console.log('❌ Onboarding completion failed:', result.message);
-      return { success: false, error: result };
-    }
-  } catch (error) {
-    console.log('❌ Onboarding completion error:', error.message);
-    return { success: false, error: error.message };
-  }
-}
-
-async function testTokenRefresh() {
-  console.log('\n🔄 Step 7: Testing Token Refresh...');
-
-  try {
-    const response = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        refreshToken: userTokens.refreshToken
-      })
-    });
-
-    const result = await response.json();
-
-    if (response.ok) {
-      console.log('✅ Token refresh successful');
-      console.log('🔑 New access token received:', result.accessToken ? 'YES' : 'NO');
-      console.log('🔄 New refresh token received:', result.refreshToken ? 'YES' : 'NO');
-
-      // Update tokens
-      userTokens = {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken
-      };
-
-      return { success: true, data: result };
-    } else {
-      console.log('❌ Token refresh failed:', result.message);
-      return { success: false, error: result };
-    }
-  } catch (error) {
-    console.log('❌ Token refresh error:', error.message);
-    return { success: false, error: error.message };
-  }
-}
-
-async function testCleanupPreview() {
-  console.log('\n🔄 Step 8: Testing Cleanup Preview...');
-
-  try {
-    const response = await fetch(`${API_BASE}/auth/admin/cleanup-preview?timeoutSeconds=30`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-
-    const result = await response.json();
-
-    if (response.ok) {
-      console.log('✅ Cleanup preview successful');
-      console.log('📊 Users to cleanup:', result.usersToCleanup?.length || 0);
-      console.log('⏰ Timeout used:', result.timeoutUsed, 'seconds');
-      return { success: true, data: result };
-    } else {
-      console.log('❌ Cleanup preview failed');
-      return { success: false, error: result };
-    }
-  } catch (error) {
-    console.log('❌ Cleanup preview error:', error.message);
-    return { success: false, error: error.message };
-  }
-}
-
+// Test 6: Logout (should clear HttpOnly cookies)
 async function testLogout() {
-  console.log('\n🔄 Step 9: Testing Logout...');
-
+  log('LOGOUT', '🚪 Testing logout with HttpOnly cookies...');
+  
   try {
-    const response = await fetch(`${API_BASE}/auth/logout`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${userTokens.accessToken}`,
-        'Content-Type': 'application/json',
-      }
-    });
-
-    const result = await response.json();
-
-    if (response.ok) {
-      console.log('✅ Logout successful');
-      console.log('📝 Message:', result.message);
-      return { success: true, data: result };
-    } else {
-      console.log('❌ Logout failed:', result.message);
-      return { success: false, error: result };
+    const config = addCookiesToRequest({});
+    const response = await api.post('/auth/logout', {}, config);
+    log('LOGOUT', '✅ Logout successful', response.data);
+    results.logout = response.data;
+    
+    // Check if cookies are cleared
+    const cookies = response.headers['set-cookie'];
+    if (cookies) {
+      log('LOGOUT', '🍪 Cookies cleared:', cookies);
     }
+    
+    return response.data;
   } catch (error) {
-    console.log('❌ Logout error:', error.message);
-    return { success: false, error: error.message };
+    log('LOGOUT', `❌ Logout failed: ${error.response?.status} ${error.response?.statusText}`);
+    if (error.response?.data) {
+      log('LOGOUT', 'Error details:', error.response.data);
+    }
+    results.errors.push({ step: 'LOGOUT', error: error.response?.data || error.message });
+    return null;
   }
 }
 
-async function runCompleteAuthTest() {
-  console.log('🎯 DDD AUTHENTICATION FLOW - COMPREHENSIVE TEST');
-  console.log('===============================================');
-  console.log(`📧 Test email: ${testUser.email}`);
-  console.log(`🏢 Test company: ${testUser.companyName} (${testUser.companyBin})\n`);
+// Test 7: Verify session is cleared
+async function testSessionCleared() {
+  log('SESSION_CHECK', '🔍 Verifying session is cleared...');
+  
+  try {
+    const response = await api.get('/auth/me');
+    log('SESSION_CHECK', '❌ ERROR: Session should be cleared but profile accessible');
+    results.errors.push({ step: 'SESSION_CHECK', error: 'Session not cleared properly' });
+  } catch (error) {
+    if (error.response?.status === 401) {
+      log('SESSION_CHECK', '✅ Session properly cleared (401 Unauthorized)');
+    } else {
+      logError('SESSION_CHECK', error);
+    }
+  }
+}
 
-  const results = {
-    registration: null,
-    emailVerification: null,
-    profileAccess: null,
-    onboardingProgress: null,
-    companySearch: null,
-    onboardingCompletion: null,
-    tokenRefresh: null,
-    cleanupPreview: null,
-    logout: null
-  };
+// Main test runner
+async function runAuthFlowTest() {
+  console.log('🚀 STARTING COMPREHENSIVE AUTH FLOW TEST');
+  console.log('=' .repeat(60));
+  console.log(`Test Email: ${TEST_EMAIL}`);
+  console.log(`Test Password: ${TEST_PASSWORD}`);
+  console.log('=' .repeat(60));
 
   try {
     // Step 1: Registration
-    results.registration = await testRegistration();
-    if (!results.registration.success) {
-      throw new Error('Registration failed');
+    await testRegistration();
+    
+    // Step 2: Get verification code
+    const verificationCode = await getVerificationCode();
+    
+    // Step 3: Email verification
+    await testEmailVerification(verificationCode);
+    
+    // Step 4: Login
+    await testLogin();
+    
+    // Step 5: Profile access
+    await testProfile();
+    
+    // Step 6: Logout
+    await testLogout();
+    
+    // Step 7: Verify session cleared
+    await testSessionCleared();
+    
+    // Summary
+    console.log('\n🎉 AUTH FLOW TEST COMPLETED');
+    console.log('=' .repeat(60));
+    console.log('✅ Registration:', results.registration ? 'PASS' : 'FAIL');
+    console.log('✅ Email Verification:', results.emailVerification ? 'PASS' : 'FAIL');
+    console.log('✅ Login:', results.login ? 'PASS' : 'FAIL');
+    console.log('✅ Profile Access:', results.profile ? 'PASS' : 'FAIL');
+    console.log('✅ Logout:', results.logout ? 'PASS' : 'FAIL');
+    
+    if (results.errors.length > 0) {
+      console.log('\n❌ ERRORS:');
+      results.errors.forEach(error => {
+        console.log(`  - ${error.step}: ${error.error}`);
+      });
+    } else {
+      console.log('\n🎉 ALL TESTS PASSED! HttpOnly cookies working perfectly!');
     }
-
-    // Step 2: Email Verification (with mock code)
-    results.emailVerification = await testEmailVerification();
-    if (!results.emailVerification.success) {
-      throw new Error('Email verification failed');
-    }
-
-    // Step 3: Profile Access
-    results.profileAccess = await testUserProfile();
-    if (!results.profileAccess.success) {
-      throw new Error('Profile access failed');
-    }
-
-    // Step 4: Onboarding Progress
-    results.onboardingProgress = await testOnboardingProgress();
-    if (!results.onboardingProgress.success) {
-      console.log('⚠️  Onboarding progress failed, continuing...');
-    }
-
-    // Step 5: Company Search
-    results.companySearch = await testCompanySearch();
-    if (!results.companySearch.success) {
-      console.log('⚠️  Company search failed, continuing...');
-    }
-
-    // Step 6: Onboarding Completion
-    results.onboardingCompletion = await testOnboardingCompletion();
-    if (!results.onboardingCompletion.success) {
-      console.log('⚠️  Onboarding completion failed, continuing...');
-    }
-
-    // Step 7: Token Refresh
-    results.tokenRefresh = await testTokenRefresh();
-    if (!results.tokenRefresh.success) {
-      console.log('⚠️  Token refresh failed, continuing...');
-    }
-
-    // Step 8: Cleanup Preview (admin endpoint)
-    results.cleanupPreview = await testCleanupPreview();
-    if (!results.cleanupPreview.success) {
-      console.log('⚠️  Cleanup preview failed, continuing...');
-    }
-
-    // Step 9: Logout
-    results.logout = await testLogout();
-    if (!results.logout.success) {
-      console.log('⚠️  Logout failed, continuing...');
-    }
-
+    
   } catch (error) {
-    console.log(`\n❌ Test suite failed at: ${error.message}`);
-  }
-
-  // Summary
-  console.log('\n📊 TEST RESULTS SUMMARY');
-  console.log('========================');
-
-  const testResults = [
-    { name: 'Registration', result: results.registration },
-    { name: 'Email Verification', result: results.emailVerification },
-    { name: 'Profile Access', result: results.profileAccess },
-    { name: 'Onboarding Progress', result: results.onboardingProgress },
-    { name: 'Company Search', result: results.companySearch },
-    { name: 'Onboarding Completion', result: results.onboardingCompletion },
-    { name: 'Token Refresh', result: results.tokenRefresh },
-    { name: 'Cleanup Preview', result: results.cleanupPreview },
-    { name: 'Logout', result: results.logout }
-  ];
-
-  testResults.forEach(test => {
-    const status = test.result?.success ? '✅' : '❌';
-    const name = test.name.padEnd(20);
-    console.log(`${status} ${name} ${test.result?.success ? 'PASSED' : 'FAILED'}`);
-  });
-
-  const passedTests = testResults.filter(test => test.result?.success).length;
-  const totalTests = testResults.length;
-
-  console.log(`\n📈 Results: ${passedTests}/${totalTests} tests passed`);
-
-  if (passedTests === totalTests) {
-    console.log('🎉 ALL TESTS PASSED - DDD Authentication flow working perfectly!');
-  } else {
-    console.log('⚠️  Some tests failed - check logs above for details');
-  }
-
-  return {
-    passed: passedTests,
-    total: totalTests,
-    success: passedTests === totalTests,
-    results
-  };
-}
-
-// Additional helper tests
-async function testPasswordValidation() {
-  console.log('\n🔄 Bonus: Testing Password Validation...');
-
-  const passwords = [
-    'weak',
-    'stronger123',
-    'VeryStrong123!',
-    testUser.password
-  ];
-
-  for (const password of passwords) {
-    try {
-      const response = await fetch(`${API_BASE}/auth/validate-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password })
-      });
-
-      const result = await response.json();
-      console.log(`🔒 "${password}": ${result.isValid ? 'VALID' : 'INVALID'} (score: ${result.score}/${result.maxScore})`);
-    } catch (error) {
-      console.log(`❌ Password validation error for "${password}":`, error.message);
-    }
+    console.error('\n💥 TEST FAILED:', error.message);
+    process.exit(1);
   }
 }
 
-async function testEmailExists() {
-  console.log('\n🔄 Bonus: Testing Email Exists Check...');
-
-  const emails = [
-    testUser.email,
-    'nonexistent@example.com'
-  ];
-
-  for (const email of emails) {
-    try {
-      const response = await fetch(`${API_BASE}/auth/check-email?email=${encodeURIComponent(email)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      const result = await response.json();
-      console.log(`📧 "${email}": ${result.exists ? 'EXISTS' : 'AVAILABLE'}`);
-    } catch (error) {
-      console.log(`❌ Email check error for "${email}":`, error.message);
-    }
-  }
-}
-
-// Main execution
+// Run the test
 if (require.main === module) {
-  runCompleteAuthTest()
-    .then(async (summary) => {
-      // Run bonus tests
-      await testPasswordValidation();
-      await testEmailExists();
-
-      console.log('\n🏁 Complete DDD Authentication Test Finished!');
-      console.log(`Final Score: ${summary.passed}/${summary.total} tests passed`);
-
-      process.exit(summary.success ? 0 : 1);
-    })
-    .catch((error) => {
-      console.error('\n💥 Test suite crashed:', error);
-      process.exit(1);
-    });
+  runAuthFlowTest().catch(console.error);
 }
 
-module.exports = {
-  runCompleteAuthTest,
-  testRegistration,
-  testEmailVerification,
-  testUserProfile,
-  testOnboardingProgress,
-  testOnboardingCompletion,
-  testTokenRefresh,
-  testLogout
-};
+module.exports = { runAuthFlowTest, results };

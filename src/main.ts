@@ -43,15 +43,55 @@ async function bootstrap() {
     crossOriginEmbedderPolicy: false,
   }));
 
-  // 🚀 BASIC RATE LIMITING (Working version)
+  // 🔐 ENHANCED RATE LIMITING for Critical Security
+
+  // Login attempts - Very strict
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 5 : 50, // 5 attempts in production
+    message: 'Too many login attempts, please try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: false, // Count ALL attempts
+  });
+
+  // Registration - Moderate
+  const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: process.env.NODE_ENV === 'production' ? 3 : 30, // 3 registrations per hour
+    message: 'Too many registration attempts from this IP',
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Email verification codes - Very strict
+  const emailCodeLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 3 : 100, // 3 in production, 100 in development
+    message: 'Too many verification code requests. Please wait before trying again',
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Password reset - Strict
+  const passwordResetLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 3 : 20, // 3 attempts in production
+    message: 'Too many password reset attempts',
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // General auth endpoints
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'production' ? 20 : 100,
+    max: process.env.NODE_ENV === 'production' ? 30 : 100,
     message: 'Too many auth attempts, try again later',
     standardHeaders: true,
     legacyHeaders: false,
   });
 
+  // General API requests
   const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: process.env.NODE_ENV === 'production' ? 100 : 1000,
@@ -60,21 +100,15 @@ async function bootstrap() {
     legacyHeaders: false,
   });
 
-  // 🔐 SECURE EMAIL VERIFICATION - Special rate limiting for send-code
-  const emailCodeLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Only 5 code requests per 15 min per IP + email combination
-    message: 'Too many verification code requests, try again later',
-    standardHeaders: true,
-    legacyHeaders: false,
-    // Remove custom keyGenerator to fix IPv6 warning
-    // Default generator handles IPv6 properly
-  });
-
-  // Apply rate limiting to specific routes
-  app.use('/auth/send-code', emailCodeLimiter); // CRITICAL: Prevent spam attacks
-  app.use('/auth', authLimiter);
-  app.use(generalLimiter);
+  // Apply rate limiting to specific critical routes
+  app.use('/auth/login', loginLimiter);         // CRITICAL: Prevent brute force
+  app.use('/auth/register', registerLimiter);   // CRITICAL: Prevent spam accounts
+  app.use('/auth/send-code', emailCodeLimiter); // CRITICAL: Prevent email spam
+  app.use('/auth/verify-code', emailCodeLimiter); // CRITICAL: Prevent code guessing
+  app.use('/auth/reset-password', passwordResetLimiter); // CRITICAL: Prevent abuse
+  app.use('/auth/forgot-password', passwordResetLimiter); // CRITICAL: Prevent abuse
+  app.use('/auth', authLimiter);  // Other auth endpoints
+  app.use(generalLimiter);        // All other endpoints
 
   // 🔧 GLOBAL ERROR HANDLING & GRACEFUL DEGRADATION
   app.useGlobalFilters(new GlobalExceptionFilter());
@@ -82,7 +116,7 @@ async function bootstrap() {
   // Enhanced global validation
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
-    forbidNonWhitelisted: true,
+    forbidNonWhitelisted: false, // Allow organizationId injection from OrganizationGuard
     transform: true,
     transformOptions: {
       enableImplicitConversion: false

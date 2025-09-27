@@ -281,7 +281,7 @@ export class Pipeline extends AggregateRoot {
     };
   }
 
-  private touch(): void {
+  private _touch(): void {
     // Update timestamp for aggregate changes
     // In full DDD implementation, this would update updatedAt timestamp
   }

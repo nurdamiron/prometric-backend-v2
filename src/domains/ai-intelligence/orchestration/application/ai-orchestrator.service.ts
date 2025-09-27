@@ -200,7 +200,7 @@ export class AiOrchestratorService {
       organizationData: {
         name: organization.name,
         industry: organization.industry,
-        bin: organization.bin,
+        bin: organization.bin || '',
         knowledgeBase: [], // Will be loaded by knowledge service
         permissions: [] // Will be loaded by permission service
       },
@@ -251,31 +251,13 @@ export class AiOrchestratorService {
 
   private async generateAiResponseWithKnowledge(request: AiRequest, ragResults: any[]): Promise<AiResponse> {
     try {
-      // Load Vertex AI credentials
-      const fs = await import('fs');
-      let vertexAI;
+      // Initialize Vertex AI with environment credentials
+      const { VertexAI } = await import('@google-cloud/vertexai');
 
-      try {
-        const keyPath = './vertex-ai-key.json';
-        const keyFile = fs.readFileSync(keyPath, 'utf8');
-        const credentials = JSON.parse(keyFile);
-
-        const { VertexAI } = await import('@google-cloud/vertexai');
-
-        vertexAI = new VertexAI({
-          project: credentials.project_id,
-          location: 'us-central1',
-          googleAuthOptions: {
-            credentials: {
-              client_email: credentials.client_email,
-              private_key: credentials.private_key,
-            }
-          }
-        });
-
-      } catch (credError: any) {
-        throw new Error(`Vertex AI credentials not found: ${credError.message}`);
-      }
+      const vertexAI = new VertexAI({
+        project: 'storied-algebra-457806-r5',
+        location: 'us-central1',
+      });
 
       const context = request.context!;
 

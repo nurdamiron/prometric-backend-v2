@@ -65,6 +65,9 @@ export class User {
   @Column({ nullable: true })
   verificationExpiresAt?: Date;
 
+  @Column({ default: false })
+  emailVerified: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   registrationData?: {
     firstName?: string;
@@ -119,8 +122,8 @@ export class Organization {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
-  bin: string;
+  @Column({ unique: true, nullable: true })
+  bin?: string;
 
   @Column()
   name: string;
@@ -128,8 +131,8 @@ export class Organization {
   @Column()
   industry: string;
 
-  @Column({ name: 'owner_id' })
-  ownerId: string;
+  @Column({ name: 'owner_id', nullable: true })
+  ownerId?: string;
 
   // AI Brain configuration
   @Column({ type: 'jsonb', nullable: true })
@@ -151,15 +154,45 @@ export class RefreshToken {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  token: string;
+  @Column({ name: 'token_hash' })
+  tokenHash: string;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
-  @Column()
+  @Column({ name: 'expires_at' })
   expiresAt: Date;
 
-  @CreateDateColumn()
+  @Column({ name: 'jti' })
+  jti: string;
+
+  @Column({ name: 'user_agent', nullable: true })
+  userAgent?: string;
+
+  @Column({ name: 'device_fingerprint', nullable: true })
+  deviceFingerprint?: string;
+
+  @Column({ name: 'ip_address', nullable: true })
+  ipAddress?: string;
+
+  @Column({ name: 'device_info', type: 'jsonb', nullable: true })
+  deviceInfo?: any;
+
+  @Column({ name: 'usage_count', default: 0 })
+  usageCount: number;
+
+  @Column({ name: 'last_used_at', nullable: true })
+  lastUsedAt?: Date;
+
+  @Column({ name: 'revoked_at', nullable: true })
+  revokedAt?: Date;
+
+  @Column({ name: 'revocation_reason', nullable: true })
+  revocationReason?: string;
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 }

@@ -16,6 +16,7 @@ import { UserRole as UserRoleVO } from '../../domain/value-objects/user-role.vo'
 import { RegisterDto, LoginDto } from '../../infrastructure/dto/register.dto';
 import { OnboardingDataDto, UpdateOnboardingProgressDto, CompleteOnboardingDto } from '../../infrastructure/dto/onboarding.dto';
 import { EmailService } from '../../infrastructure/services/email.service';
+import { CompanyDataService } from './company-data.service';
 
 /**
  * DDD Application Service: Authentication Orchestration
@@ -36,6 +37,7 @@ export class AuthApplicationService {
 
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
+    private readonly companyDataService: CompanyDataService,
   ) {}
 
   // 📝 COMMAND: Register User
@@ -123,8 +125,7 @@ export class AuthApplicationService {
     userAgent?: string;
   }) {
     const user = await this.userRepository.findOne({
-      where: { email: loginDto.email },
-      relations: ['organization']
+      where: { email: loginDto.email }
     });
 
     if (!user) {
@@ -212,15 +213,16 @@ export class AuthApplicationService {
       return { success: false, message: 'Verification code has expired' };
     }
 
-    // Activate user
-    user.status = UserStatus.ACTIVE;
+    // Mark email as verified and generate tokens for onboarding flow
+    user.status = UserStatus.PENDING;  // Keep PENDING until onboarding completes
+    user.emailVerified = true;  // Mark email as verified
     user.verificationCode = undefined;
     user.verificationExpiresAt = undefined;
     user.onboardingStep = OnboardingStep.THEME;
 
     await this.userRepository.save(user);
 
-    // Generate tokens for authenticated session
+    // Generate tokens for authenticated onboarding flow
     const tokens = await this.generateTokens(user);
 
     return {
@@ -307,9 +309,9 @@ export class AuthApplicationService {
     // Store refresh token
     const hashedRefreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const refreshTokenEntity = this.refreshTokenRepository.create({
-      id: uuidv4(),
-      token: hashedRefreshToken,
+      tokenHash: hashedRefreshToken,
       userId: user.id,
+      jti: jti,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
     });
 
@@ -329,34 +331,12 @@ export class AuthApplicationService {
       .trim();
   }
 
-  // 📝 HELPER: Set Auth Cookies
-  setAuthCookies(res: any, tokens: { accessToken: string; refreshToken: string }) {
-    res.cookie('access_token', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 minutes
-    });
-
-    res.cookie('refresh_token', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-  }
-
-  // 📝 HELPER: Clear Auth Cookies
-  clearAuthCookies(res: any) {
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
-  }
 
   // 📝 COMMAND: Refresh Token
   async refresh(refreshToken: string, requestMetadata?: any) {
     const hashedToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
     const tokenRecord = await this.refreshTokenRepository.findOne({
-      where: { token: hashedToken }
+      where: { tokenHash: hashedToken }
     });
 
     if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
@@ -448,7 +428,8 @@ export class AuthApplicationService {
       throw new Error('User not found');
     }
 
-    if (user.status !== UserStatus.ACTIVE) {
+    // Check if email is verified
+    if (!user.emailVerified) {
       throw new Error('Email must be verified before completing onboarding');
     }
 
@@ -456,35 +437,63 @@ export class AuthApplicationService {
     user.registrationData = { ...user.registrationData, ...onboardingData };
     user.onboardingStep = OnboardingStep.COMPLETED;
 
-    // Assign role based on user type
-    if (onboardingData.userType === 'owner') {
+    // Get complete user data from all onboarding steps
+    const completeUserData = user.registrationData || {};
+    console.log('🔍 Complete user registration data:', JSON.stringify(completeUserData, null, 2));
+
+    // Assign role based on user type from registration data
+    if (completeUserData.userType === 'owner') {
       user.role = UserRole.OWNER;
 
       // Create organization for owner
-      if (onboardingData.companyBin && onboardingData.companyName) {
+      if (completeUserData.companyBin && completeUserData.companyName) {
+        console.log('🏢 Creating organization for owner:', {
+          companyBin: completeUserData.companyBin,
+          companyName: completeUserData.companyName,
+          industry: completeUserData.industry
+        });
+
         const existingOrg = await this.organizationRepository.findOne({
-          where: { bin: onboardingData.companyBin }
+          where: { bin: completeUserData.companyBin }
         });
 
         if (!existingOrg) {
           const organization = this.organizationRepository.create({
             id: uuidv4(),
-            bin: onboardingData.companyBin,
-            name: onboardingData.companyName,
-            industry: onboardingData.industry || 'Other',
+            bin: completeUserData.companyBin,
+            name: completeUserData.companyName,
+            industry: completeUserData.industry || 'Other',
             ownerId: user.id
           });
 
           const savedOrg = await this.organizationRepository.save(organization);
           user.organizationId = savedOrg.id;
+          console.log('✅ Organization created:', savedOrg.id);
+        } else {
+          // If organization exists, assign user to it
+          user.organizationId = existingOrg.id;
+          console.log('✅ Organization exists, assigned user to:', existingOrg.id);
         }
+      } else {
+        console.log('⚠️ No company data provided for organization creation');
       }
-    } else if (onboardingData.userType === 'employee') {
+    } else if (completeUserData.userType === 'employee') {
       user.role = UserRole.EMPLOYEE;
       user.status = UserStatus.PENDING; // Pending owner approval
     }
 
+    // Activate user after successful onboarding (for owners)
+    if (user.role === UserRole.OWNER) {
+      user.status = UserStatus.ACTIVE;
+    }
+
     await this.userRepository.save(user);
+
+    // Generate tokens ONLY after onboarding is complete
+    let tokens = null;
+    if (user.status === UserStatus.ACTIVE) {
+      tokens = await this.generateTokens(user);
+    }
 
     return {
       success: true,
@@ -498,39 +507,78 @@ export class AuthApplicationService {
         status: user.status,
         organizationId: user.organizationId,
         onboardingStep: user.onboardingStep
-      }
+      },
+      ...(tokens && {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: 900,
+        tokenType: 'Bearer'
+      })
     };
   }
 
-  // 📝 QUERY: Find Company
+  // 📝 QUERY: Find Company (with external data integration)
   async findCompany(bin: string) {
     if (!bin || bin.length !== 12) {
       return { exists: false, message: 'Invalid BIN format' };
     }
 
+    // First, check if company exists in our database
     const organization = await this.organizationRepository.findOne({
       where: { bin }
     });
 
-    if (!organization) {
-      return { exists: false, message: 'Company not found' };
+    if (organization) {
+      // Company exists in our system - return with owner info
+      const owner = await this.userRepository.findOne({ where: { id: organization.ownerId } });
+
+      return {
+        exists: true,
+        inSystem: true,
+        company: {
+          id: organization.id,
+          name: organization.name,
+          bin: organization.bin,
+          industry: organization.industry,
+          owner: owner ? {
+            firstName: owner.firstName,
+            lastName: owner.lastName,
+            email: owner.email
+          } : null
+        }
+      };
     }
 
-    const owner = await this.userRepository.findOne({ where: { id: organization.ownerId } });
+    // Company not in our system - try to fetch from external sources
+    const externalCompanyData = await this.companyDataService.fetchCompanyData(bin);
 
+    if (externalCompanyData) {
+      // External data found - return with suggestion to import
+      return {
+        exists: true,
+        inSystem: false,
+        externalData: {
+          bin: externalCompanyData.bin,
+          name: externalCompanyData.name,
+          fullName: externalCompanyData.fullName,
+          industry: externalCompanyData.industry,
+          address: externalCompanyData.address,
+          legalForm: externalCompanyData.legalForm,
+          status: externalCompanyData.status,
+          registrationDate: externalCompanyData.registrationDate,
+          director: externalCompanyData.director,
+          employeeCount: externalCompanyData.employeeCount
+        },
+        canImport: true,
+        message: 'Company found in government registry. You can import this data during onboarding.'
+      };
+    }
+
+    // No data found anywhere
     return {
-      exists: true,
-      company: {
-        id: organization.id,
-        name: organization.name,
-        bin: organization.bin,
-        industry: organization.industry,
-        owner: owner ? {
-          firstName: owner.firstName,
-          lastName: owner.lastName,
-          email: owner.email
-        } : null
-      }
+      exists: false,
+      inSystem: false,
+      message: 'Company not found in our system or government registry'
     };
   }
 
@@ -650,5 +698,52 @@ export class AuthApplicationService {
       expiresAt: user.verificationExpiresAt,
       status: user.status
     };
+  }
+
+  // 🔍 QUERY: Find user by email for onboarding (after email verification)
+  async findUserByEmailForOnboarding(email: string) {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      return null;
+    }
+
+    // Only return user if they are in onboarding process (email verified but not completed)
+    if (!user.emailVerified || user.onboardingStep === OnboardingStep.COMPLETED) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      onboardingStep: user.onboardingStep,
+      status: user.status
+    };
+  }
+
+  // 🔐 SECURITY: HttpOnly Cookie Management Methods
+  setAuthCookies(res: any, tokens: { accessToken: string; refreshToken: string }) {
+    // Access token cookie - 15 minutes
+    res.cookie('access_token', tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/'
+    });
+
+    // Refresh token cookie - 7 days
+    res.cookie('refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/auth'
+    });
+  }
+
+  clearAuthCookies(res: any) {
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/auth' });
   }
 }

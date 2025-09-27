@@ -5,11 +5,15 @@ export abstract class ValueObject<T> {
     this.props = Object.freeze(props);
   }
 
-  public equals(other: ValueObject<T>): boolean {
-    if (!other || !other.props) {
+  equals(vo?: ValueObject<T>): boolean {
+    if (vo === null || vo === undefined) {
       return false;
     }
 
-    return JSON.stringify(this.props) === JSON.stringify(other.props);
+    if (vo.props === undefined) {
+      return false;
+    }
+
+    return JSON.stringify(this.props) === JSON.stringify(vo.props);
   }
 }

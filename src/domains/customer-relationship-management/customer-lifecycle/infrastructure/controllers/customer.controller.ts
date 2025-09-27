@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
@@ -60,6 +60,72 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsNumber()
   potentialValue?: number;
+}
+
+export class UpdateCustomerDto {
+  @Transform(({ value }) => stripHTML(value?.trim()))
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  firstName?: string;
+
+  @Transform(({ value }) => stripHTML(value?.trim()))
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  lastName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(320)
+  email?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  phone?: string;
+
+  @Transform(({ value }) => stripHTML(value?.trim()))
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  companyName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  leadScore?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  potentialValue?: number;
+
+  @Transform(({ value }) => stripHTML(value?.trim()))
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  tags?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  customFields?: Record<string, any>;
 }
 
 @ApiTags('customers')
@@ -250,6 +316,176 @@ export class CustomerController {
       return {
         success: false,
         message: error.message || 'Failed to fetch customer'
+      };
+    }
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update customer by ID' })
+  @ApiResponse({ status: 200, description: 'Customer updated successfully' })
+  async updateCustomer(
+    @Param('id') id: string,
+    @Body() dto: UpdateCustomerDto,
+    @Req() req: any
+  ) {
+    try {
+      const organizationId = req.user.organizationId;
+
+      // Find customer
+      const customer = await this.customerRepository.findOne({
+        where: { id, ...(organizationId && { organizationId }) }
+      });
+
+      if (!customer) {
+        return {
+          success: false,
+          message: 'Customer not found'
+        };
+      }
+
+      // Check email uniqueness if email is being updated
+      if (dto.email && dto.email !== customer.email) {
+        const existingCustomer = await this.customerRepository.findOne({
+          where: { email: dto.email, organizationId }
+        });
+
+        if (existingCustomer) {
+          return {
+            success: false,
+            message: 'Customer with this email already exists'
+          };
+        }
+      }
+
+      // Update customer
+      const updatedCustomer = await this.customerRepository.save({
+        ...customer,
+        ...dto,
+        updatedAt: new Date()
+      });
+
+      return {
+        success: true,
+        data: {
+          id: updatedCustomer.id,
+          firstName: updatedCustomer.firstName,
+          lastName: updatedCustomer.lastName,
+          email: updatedCustomer.email,
+          status: updatedCustomer.status,
+          updatedAt: updatedCustomer.updatedAt
+        },
+        message: 'Customer updated successfully'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Failed to update customer'
+      };
+    }
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete customer by ID (soft delete)' })
+  @ApiResponse({ status: 200, description: 'Customer deleted successfully' })
+  async deleteCustomer(@Param('id') id: string, @Req() req: any) {
+    try {
+      const organizationId = req.user.organizationId;
+
+      // Find customer
+      const customer = await this.customerRepository.findOne({
+        where: { id, ...(organizationId && { organizationId }) }
+      });
+
+      if (!customer) {
+        return {
+          success: false,
+          message: 'Customer not found'
+        };
+      }
+
+      // Soft delete
+      await this.customerRepository.save({
+        ...customer,
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      return {
+        success: true,
+        message: 'Customer deleted successfully'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Failed to delete customer'
+      };
+    }
+  }
+
+  @Get('analytics/summary')
+  @ApiOperation({ summary: 'Get customer statistics summary' })
+  @ApiResponse({ status: 200, description: 'Customer statistics retrieved successfully' })
+  async getCustomerStats(@Req() req: any) {
+    try {
+      const organizationId = req.user.organizationId;
+
+      if (!organizationId) {
+        return {
+          success: false,
+          message: 'Organization ID is required'
+        };
+      }
+
+      // Get total customers
+      const totalCustomers = await this.customerRepository.count({
+        where: { organizationId, deletedAt: undefined }
+      });
+
+      // Get customers by status
+      const customersByStatus = await this.customerRepository
+        .createQueryBuilder('customer')
+        .select('customer.status', 'status')
+        .addSelect('COUNT(*)', 'count')
+        .where('customer.organizationId = :organizationId', { organizationId })
+        .andWhere('customer.deletedAt IS NULL')
+        .groupBy('customer.status')
+        .getRawMany();
+
+      // Get total potential value
+      const totalPotentialValue = await this.customerRepository
+        .createQueryBuilder('customer')
+        .select('SUM(customer.potentialValue)', 'total')
+        .where('customer.organizationId = :organizationId', { organizationId })
+        .andWhere('customer.deletedAt IS NULL')
+        .getRawOne();
+
+      // Get recent customers (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const recentCustomers = await this.customerRepository
+        .createQueryBuilder('customer')
+        .where('customer.organizationId = :organizationId', { organizationId })
+        .andWhere('customer.deletedAt IS NULL')
+        .andWhere('customer.createdAt >= :thirtyDaysAgo', { thirtyDaysAgo })
+        .getCount();
+
+      return {
+        success: true,
+        data: {
+          totalCustomers,
+          customersByStatus: customersByStatus.reduce((acc, item) => {
+            acc[item.status] = parseInt(item.count);
+            return acc;
+          }, {}),
+          totalPotentialValue: parseFloat(totalPotentialValue.total) || 0,
+          recentCustomers
+        }
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Failed to fetch customer statistics'
       };
     }
   }

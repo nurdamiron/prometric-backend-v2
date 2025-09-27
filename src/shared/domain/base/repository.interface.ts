@@ -1,14 +1,10 @@
-export interface Repository<T, ID> {
-  save(entity: T): Promise<void>;
-  findById(id: ID): Promise<T | null>;
-  delete(id: ID): Promise<void>;
+export interface Repository<T> {
+  findById(id: string): Promise<T | null>;
+  save(entity: T): Promise<T>;
+  delete(id: string): Promise<void>;
 }
 
-export interface SearchableRepository<T, ID, SearchCriteria> extends Repository<T, ID> {
-  search(criteria: SearchCriteria): Promise<SearchResult<T>>;
-}
-
-export interface SearchResult<T> {
+export interface PaginatedResult<T> {
   items: T[];
   total: number;
   page: number;
@@ -16,8 +12,13 @@ export interface SearchResult<T> {
   totalPages: number;
 }
 
-export interface UnitOfWork {
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
-  isActive(): boolean;
+export interface PaginationOptions {
+  page: number;
+  limit: number;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+export interface FilterOptions {
+  [key: string]: any;
 }

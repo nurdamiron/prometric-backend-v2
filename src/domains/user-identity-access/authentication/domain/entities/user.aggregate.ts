@@ -232,7 +232,7 @@ export class UserAggregate extends AggregateRoot {
   }
 
   // 📊 GETTERS
-  get id(): string { return this._id; }
+  getUserId(): string { return this._id; }
   get email(): string { return this._email.value; }
   get firstName(): string { return this._firstName; }
   get lastName(): string { return this._lastName; }
@@ -253,8 +253,8 @@ export class UserAggregate extends AggregateRoot {
   get passwordChangedAt(): Date | undefined { return this._passwordChangedAt; }
   get knownDevices(): any[] | undefined { return this._knownDevices; }
   get securityEvents(): any[] | undefined { return this._securityEvents; }
-  get createdAt(): Date { return this._createdAt; }
-  get updatedAt(): Date { return this._updatedAt; }
+  getUserCreatedAt(): Date { return this._createdAt; }
+  getUserUpdatedAt(): Date { return this._updatedAt; }
 
   private markModified(): void {
     this._updatedAt = new Date();

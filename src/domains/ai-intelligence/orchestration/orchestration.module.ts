@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { AiOrchestratorController } from './infrastructure/controllers/ai-orchestrator.controller';
 import { AiOrchestratorService } from './application/ai-orchestrator.service';
+import { VertexAIService } from './infrastructure/external-services/vertex-ai.service';
 
 // Import entities from auth module
 import { User, Organization } from '../../user-identity-access/authentication/domain/entities/user.entity';
@@ -21,7 +22,7 @@ import { ConversationModule } from '../conversation/conversation.module';
     ConversationModule // Conversation context integration
   ],
   controllers: [AiOrchestratorController],
-  providers: [AiOrchestratorService],
-  exports: [AiOrchestratorService, TypeOrmModule]
+  providers: [AiOrchestratorService, VertexAIService],
+  exports: [AiOrchestratorService, VertexAIService, TypeOrmModule]
 })
 export class OrchestrationModule {}

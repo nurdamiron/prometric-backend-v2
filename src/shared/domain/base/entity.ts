@@ -1,22 +1,26 @@
 export abstract class Entity {
+  public readonly id?: string;
+  public readonly createdAt?: Date;
+  public readonly updatedAt?: Date;
+
   protected constructor(
-    public readonly id: string,
-    public readonly createdAt?: Date,
-    public readonly updatedAt?: Date
+    id?: string,
+    createdAt?: Date,
+    updatedAt?: Date
   ) {
-    this.createdAt = createdAt ?? new Date();
-    this.updatedAt = updatedAt ?? new Date();
+    this.id = id;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
-  public equals(entity: Entity): boolean {
+  equals(entity: Entity): boolean {
     if (!(entity instanceof Entity)) {
       return false;
     }
-
     return this.id === entity.id;
   }
 
   protected touch(): void {
-    (this as any).updatedAt = new Date();
+    (this.updatedAt as any) = new Date();
   }
 }

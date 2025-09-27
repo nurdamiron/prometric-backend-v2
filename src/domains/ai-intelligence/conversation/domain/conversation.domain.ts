@@ -15,6 +15,8 @@ export interface ConversationSession {
 
 export enum ConversationStatus {
   ACTIVE = 'active',
+  COMPLETED = 'completed',
+  PAUSED = 'paused',
   ARCHIVED = 'archived',
   DELETED = 'deleted'
 }

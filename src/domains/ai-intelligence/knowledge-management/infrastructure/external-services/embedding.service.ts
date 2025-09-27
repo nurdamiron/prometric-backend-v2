@@ -27,24 +27,12 @@ export class EmbeddingService {
 
   private async initializeVertexAI() {
     try {
-      // Load Vertex AI credentials (same as in AI Orchestrator)
-      const fs = await import('fs');
-      const keyPath = './vertex-ai-key.json';
-      const keyFile = fs.readFileSync(keyPath, 'utf8');
-      this.credentials = JSON.parse(keyFile);
-
-      // Initialize Vertex AI
+      // Initialize Vertex AI with environment credentials
       const { VertexAI } = await import('@google-cloud/vertexai');
 
       this.vertexAI = new VertexAI({
-        project: this.credentials.project_id,
+        project: 'storied-algebra-457806-r5',
         location: 'us-central1',
-        googleAuthOptions: {
-          credentials: {
-            client_email: this.credentials.client_email,
-            private_key: this.credentials.private_key,
-          }
-        }
       });
 
       this.logger.log('Vertex AI initialized for embeddings with gemini-embedding-001');
@@ -64,19 +52,11 @@ export class EmbeddingService {
     const cleanedText = this.preprocessText(text);
 
     try {
-      if (!this.credentials) {
-        await this.initializeVertexAI();
-      }
-
       // Use Vertex AI REST API directly for embeddings
       // The SDK doesn't have proper embedding support yet
       const { GoogleAuth } = await import('google-auth-library');
 
       const auth = new GoogleAuth({
-        credentials: {
-          client_email: this.credentials.client_email,
-          private_key: this.credentials.private_key,
-        },
         scopes: ['https://www.googleapis.com/auth/cloud-platform']
       });
 
@@ -93,7 +73,7 @@ export class EmbeddingService {
       };
 
       const response = await fetch(
-        `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.credentials.project_id}/locations/us-central1/publishers/google/models/${this.model}:predict`,
+        `https://us-central1-aiplatform.googleapis.com/v1/projects/storied-algebra-457806-r5/locations/us-central1/publishers/google/models/${this.model}:predict`,
         {
           method: 'POST',
           headers: {
@@ -154,18 +134,10 @@ export class EmbeddingService {
     }
 
     try {
-      if (!this.credentials) {
-        await this.initializeVertexAI();
-      }
-
       // Use Vertex AI REST API directly for batch embeddings
       const { GoogleAuth } = await import('google-auth-library');
 
       const auth = new GoogleAuth({
-        credentials: {
-          client_email: this.credentials.client_email,
-          private_key: this.credentials.private_key,
-        },
         scopes: ['https://www.googleapis.com/auth/cloud-platform']
       });
 
@@ -188,7 +160,7 @@ export class EmbeddingService {
           };
 
           const response = await fetch(
-            `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.credentials.project_id}/locations/us-central1/publishers/google/models/${this.model}:predict`,
+            `https://us-central1-aiplatform.googleapis.com/v1/projects/storied-algebra-457806-r5/locations/us-central1/publishers/google/models/${this.model}:predict`,
             {
               method: 'POST',
               headers: {

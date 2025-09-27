@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request, Query, Req, Res } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request, Query, Req, Res, Param } from '@nestjs/common';
 import { AuthApplicationService } from '../../application/services/auth-application.service';
 import { UserCleanupApplicationService } from '../../application/services/user-cleanup.application.service';
 // DDD imports
@@ -6,6 +6,7 @@ import { RegisterDto, LoginDto } from '../dto/register.dto';
 import { UpdateOnboardingProgressDto, CompleteOnboardingDto } from '../dto/onboarding.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { OrganizationGuard, SkipOrgGuard } from '../../../../../shared/guards/organization.guard';
+import { Public } from '../../../../../shared/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -14,12 +15,14 @@ export class AuthController {
     private readonly userCleanupService: UserCleanupApplicationService,
   ) {}
 
+  @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto, @Req() req: any, @Res({ passthrough: true }) res: any) {
@@ -41,6 +44,7 @@ export class AuthController {
     return userResponse;
   }
 
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Req() req: any, @Res({ passthrough: true }) res: any) {
@@ -110,6 +114,7 @@ export class AuthController {
   }
 
   // VALIDATION ENDPOINTS
+  @Public()
   @Get('check-email')
   @HttpCode(HttpStatus.OK)
   async checkEmailExists(@Query('email') email: string) {
@@ -120,12 +125,14 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('validate-password')
   @HttpCode(HttpStatus.OK)
   async validatePassword(@Body('password') password: string) {
     return this.authService.validatePassword(password);
   }
 
+  @Public()
   @Get('company')
   @HttpCode(HttpStatus.OK)
   async company(@Query('bin') bin: string) {
@@ -133,6 +140,7 @@ export class AuthController {
   }
 
   // EMAIL VERIFICATION ENDPOINTS
+  @Public()
   @Post('send-code')
   @HttpCode(HttpStatus.OK)
   async sendCode(
@@ -142,13 +150,29 @@ export class AuthController {
     return this.authService.sendCode(email, language);
   }
 
+  @Public()
   @Post('verify-code')
   @HttpCode(HttpStatus.OK)
   async verifyCode(
     @Body('email') email: string,
-    @Body('code') code: string
+    @Body('code') code: string,
+    @Res({ passthrough: true }) res: any
   ) {
-    return this.authService.verifyCode(email, code);
+    const result = await this.authService.verifyCode(email, code);
+    
+    // 🔐 Set HttpOnly cookies if verification successful
+    if (result.success && result.accessToken && result.refreshToken) {
+      this.authService.setAuthCookies(res, {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
+      });
+      
+      // Return user data without tokens (tokens are in httpOnly cookies)
+      const { accessToken, refreshToken, ...userResponse } = result;
+      return userResponse;
+    }
+    
+    return result;
   }
 
   // ONBOARDING PROGRESS ENDPOINTS
@@ -164,6 +188,51 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async finish(@Request() req: any, @Body() dto: CompleteOnboardingDto) {
     return this.authService.finishOnboarding(req.user.id, dto.onboardingData);
+  }
+
+  // 🔓 PUBLIC ONBOARDING ENDPOINTS (for non-authenticated users during onboarding)
+  @Public()
+  @Post('onboarding/progress')
+  @HttpCode(HttpStatus.OK)
+  async publicProgress(
+    @Body() dto: UpdateOnboardingProgressDto & { email: string }
+  ) {
+    // Find user by email and verify they're in onboarding process
+    const user = await this.authService.findUserByEmailForOnboarding(dto.email);
+    if (!user || !user.emailVerified) {
+      throw new Error('User not found or email not verified');
+    }
+    return this.authService.progressOnboarding(user.id, dto.onboardingStep, dto.onboardingData);
+  }
+
+  @Public()
+  @Post('onboarding/finish')
+  @HttpCode(HttpStatus.OK)
+  async publicFinish(
+    @Body() dto: CompleteOnboardingDto & { email: string },
+    @Res({ passthrough: true }) res: any
+  ) {
+    // Find user by email and verify they're in onboarding process
+    const user = await this.authService.findUserByEmailForOnboarding(dto.email);
+    if (!user || !user.emailVerified) {
+      throw new Error('User not found or email not verified');
+    }
+
+    const result = await this.authService.finishOnboarding(user.id, dto.onboardingData);
+
+    // 🔐 Set HttpOnly cookies after successful onboarding completion
+    if (result.success && result.accessToken && result.refreshToken) {
+      this.authService.setAuthCookies(res, {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
+      });
+
+      // Return user data without tokens (tokens are in httpOnly cookies)
+      const { accessToken, refreshToken, ...userResponse } = result;
+      return userResponse;
+    }
+
+    return result;
   }
 
   // EMPLOYEE APPROVAL ENDPOINTS - Protected by OrgGuard
@@ -202,6 +271,7 @@ export class AuthController {
   }
 
   // 🧪 TEST ENDPOINT - Get verification code for testing (development only)
+  @Public()
   @Get('test/verification-code/:email')
   @HttpCode(HttpStatus.OK)
   async getVerificationCodeForTesting(@Param('email') email: string) {
